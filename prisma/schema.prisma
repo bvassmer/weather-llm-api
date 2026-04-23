@@ -1,0 +1,64 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ConversationMessageRole {
+  user
+  assistant
+}
+
+model PromptLog {
+  id         String   @id @default(uuid())
+  prompt     String
+  response   String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Conversation {
+  id        String                @id @default(uuid())
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+  messages  ConversationMessage[]
+
+  @@index([updatedAt], map: "idx_conversations_updated_at")
+}
+
+model ConversationMessage {
+  id             String                  @id @default(uuid())
+  conversationId String                  @map("conversation_id")
+  conversation   Conversation            @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           ConversationMessageRole
+  position       Int
+  content        String
+  metadata       Json?
+  createdAt      DateTime                @default(now()) @map("created_at")
+  updatedAt      DateTime                @updatedAt @map("updated_at")
+
+  @@unique([conversationId, position], map: "uq_conversation_messages_conversation_position")
+  @@index([conversationId, createdAt], map: "idx_conversation_messages_conversation_created_at")
+  @@map("conversation_messages")
+}
+
+model EmbeddingQueueJob {
+  id             BigInt    @id @default(autoincrement())
+  dedupeKey      String    @unique @map("dedupe_key")
+  payload        Json
+  status         String
+  attemptCount   Int       @default(0) @map("attempt_count")
+  maxAttempts    Int       @default(40) @map("max_attempts")
+  nextRunAt      DateTime  @default(now()) @map("next_run_at") @db.Timestamptz
+  leasedUntil    DateTime? @map("leased_until") @db.Timestamptz
+  lastError      String?   @map("last_error")
+  completedAt    DateTime? @map("completed_at") @db.Timestamptz
+  deadLetteredAt DateTime? @map("dead_lettered_at") @db.Timestamptz
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([status, nextRunAt], map: "idx_embedding_queue_jobs_status_next_run_at")
+  @@map("embedding_queue_jobs")
+}
