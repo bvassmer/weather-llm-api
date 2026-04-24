@@ -39,7 +39,9 @@ export class NwsConversationService {
   async getLatestConversationResponse(): Promise<LatestConversationResponse> {
     const conversation = await this.getLatestConversationRecord();
     return {
-      conversation: conversation ? this.toConversationResponse(conversation) : null,
+      conversation: conversation
+        ? this.toConversationResponse(conversation)
+        : null,
     };
   }
 
@@ -107,7 +109,9 @@ export class NwsConversationService {
           });
 
       if (input.conversationId && !existingConversation) {
-        throw new BadRequestException("conversationId does not reference an existing conversation");
+        throw new BadRequestException(
+          "conversationId does not reference an existing conversation",
+        );
       }
 
       const conversation =
@@ -198,7 +202,9 @@ export class NwsConversationService {
     });
 
     if (!conversation) {
-      throw new BadRequestException("conversationId does not reference an existing conversation");
+      throw new BadRequestException(
+        "conversationId does not reference an existing conversation",
+      );
     }
 
     return conversation;
@@ -231,11 +237,15 @@ export class NwsConversationService {
     };
   }
 
-  private toRoleValue(role: ConversationMessageRoleValue): "user" | "assistant" {
+  private toRoleValue(
+    role: ConversationMessageRoleValue,
+  ): "user" | "assistant" {
     return role === "assistant" ? "assistant" : "user";
   }
 
-  private toJsonValue(value: ConversationMessageMetadata): Prisma.InputJsonValue {
+  private toJsonValue(
+    value: ConversationMessageMetadata,
+  ): Prisma.InputJsonValue {
     return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
   }
 }

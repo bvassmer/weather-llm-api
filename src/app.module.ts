@@ -5,6 +5,7 @@ import { AppController } from "./app.controller.js";
 import { CorrelationIdMiddleware } from "./correlation-id.middleware.js";
 import { NwsAdminModule } from "./api/nws-admin/nws-admin.module.js";
 import { NwsAnswerModule } from "./api/nws-answer/nws-answer.module.js";
+import { NwsOutlookSummaryModule } from "./api/nws-outlook-summary/nws-outlook-summary.module.js";
 import { PrismaModule } from "./prisma/prisma.module.js";
 import { NwsEmbeddingsModule } from "./api/nws-embeddings/nws-embeddings.module.js";
 import { NwsSearchModule } from "./api/nws-search/nws-search.module.js";
@@ -26,6 +27,7 @@ const limit = Number.parseInt(
     NwsEmbeddingsModule,
     NwsSearchModule,
     NwsAnswerModule,
+    NwsOutlookSummaryModule,
     NwsAdminModule,
     NwsAlertsModule,
   ],
