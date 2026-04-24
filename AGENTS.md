@@ -13,12 +13,13 @@
 ## Deployment Target
 
 - Deploy API changes to `nws` at `pi@192.168.6.87`.
-- Rebuild from `/home/pi/development/weather-stack/weather-llm-iac` with `sudo docker-compose up -d --build --no-deps --force-recreate api api-worker`.
+- The steady-state deploy path is GitHub-first from `/home/pi/development/weather-stack/weather-llm-iac` via `sh ./scripts/deploy_nws_from_git.sh api`; treat raw `sudo docker-compose ...` as break-glass fallback only.
 
 ## Deploy Flow
 
 - Push `weather-llm-api` changes to GitHub before deploying.
 - Keep `/home/pi/development/weather-stack/weather-llm-api` as a Git checkout on `main`.
+- Do not sync API source files directly into the Pi checkout; update the live Git checkout from GitHub and let the deploy wrapper recreate the services.
 - Deploy from `/home/pi/development/weather-stack/weather-llm-iac` with `sh ./scripts/deploy_nws_from_git.sh api` so the live Pi checkout is fast-forwarded from GitHub before `api` and `api-worker` are recreated.
 
 ## Validation

@@ -1,7 +1,7 @@
 FROM node:24-bookworm-slim AS deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
-RUN npm install
+RUN npm ci
 
 FROM node:24-bookworm-slim AS build
 WORKDIR /app
@@ -22,4 +22,4 @@ COPY --from=build /app/prisma ./prisma
 COPY --from=build /app/prisma.config.ts ./prisma.config.ts
 COPY package.json ./package.json
 EXPOSE 3000
-CMD ["sh", "-c", "(npx prisma migrate resolve --applied 20260216000000_init_prompt_log >/dev/null 2>&1 || true) && npm run prisma:migrate:deploy && node dist/main.js"]
+CMD ["node", "dist/main.js"]
