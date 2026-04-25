@@ -4,10 +4,13 @@ import type {
   DeleteByFilterRequest,
   EmailTemplatePreviewResponse,
   EnqueueAlertsBackfillRequest,
+  RealEmailTestCandidatesResponse,
   QueueDeadJobsRequest,
   ReindexRequest,
   RetryDeadJobsRequest,
   ResetCollectionRequest,
+  SendRealEmailTestRequest,
+  SendRealEmailTestResponse,
 } from "./types.js";
 
 @Controller("nws-alerts/admin")
@@ -60,5 +63,17 @@ export class NwsAdminController {
   @Post("email-templates/preview")
   async getEmailTemplatePreview(): Promise<EmailTemplatePreviewResponse> {
     return this.nwsAdminService.getEmailTemplatePreview();
+  }
+
+  @Get("email-templates/candidates")
+  async getRealEmailTestCandidates(): Promise<RealEmailTestCandidatesResponse> {
+    return this.nwsAdminService.getRealEmailTestCandidates();
+  }
+
+  @Post("email-templates/send-test")
+  async sendRealEmailTest(
+    @Body() body: SendRealEmailTestRequest,
+  ): Promise<SendRealEmailTestResponse> {
+    return this.nwsAdminService.sendRealEmailTest(body);
   }
 }

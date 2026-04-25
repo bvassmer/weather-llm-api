@@ -26,12 +26,15 @@ import type {
   EnqueueAlertsBackfillResponse,
   QueueDeadJob,
   QueueStatsResponse,
+  RealEmailTestCandidatesResponse,
   ReindexRequest,
   ReindexResponse,
   RetryDeadJobsRequest,
   RetryDeadJobsResponse,
   ResetCollectionRequest,
   ResetCollectionResponse,
+  SendRealEmailTestRequest,
+  SendRealEmailTestResponse,
 } from "./types.js";
 
 interface AdminEnv {
@@ -105,6 +108,89 @@ export class NwsAdminService {
     }
 
     return payload;
+  }
+
+  async getRealEmailTestCandidates(): Promise<RealEmailTestCandidatesResponse> {
+    const manualTriggerBaseUrl = (
+      process.env.NWS_ALERTS_MANUAL_TRIGGER_BASE_URL ?? "http://nwsalerts:3011"
+    ).replace(/\/+$/, "");
+    const requestTimeoutMs = this.parsePositiveInt(
+      process.env.NWS_ALERTS_MANUAL_TRIGGER_TIMEOUT_MS,
+      120000,
+    );
+    const endpointUrl = `${manualTriggerBaseUrl}/internal/product-email-candidates`;
+
+    let response: Response;
+    try {
+      response = await fetch(endpointUrl, {
+        method: "GET",
+        signal: AbortSignal.timeout(requestTimeoutMs),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new ServiceUnavailableException(
+        `Real email candidates request failed: ${message}`,
+      );
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new ServiceUnavailableException(
+        `Real email candidates endpoint returned ${response.status}: ${errorText}`,
+      );
+    }
+
+    const payload = (await response.json()) as RealEmailTestCandidatesResponse;
+    if (!payload || !Array.isArray(payload.candidates)) {
+      throw new ServiceUnavailableException(
+        "Real email candidates response was not in the expected format",
+      );
+    }
+
+    return payload;
+  }
+
+  async sendRealEmailTest(
+    body: SendRealEmailTestRequest,
+  ): Promise<SendRealEmailTestResponse> {
+    if (!body?.candidateId?.trim()) {
+      throw new BadRequestException("candidateId is required");
+    }
+
+    const manualTriggerBaseUrl = (
+      process.env.NWS_ALERTS_MANUAL_TRIGGER_BASE_URL ?? "http://nwsalerts:3011"
+    ).replace(/\/+$/, "");
+    const requestTimeoutMs = this.parsePositiveInt(
+      process.env.NWS_ALERTS_MANUAL_TRIGGER_TIMEOUT_MS,
+      120000,
+    );
+    const endpointUrl = `${manualTriggerBaseUrl}/internal/product-email-send`;
+
+    let response: Response;
+    try {
+      response = await fetch(endpointUrl, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ candidateId: body.candidateId.trim() }),
+        signal: AbortSignal.timeout(requestTimeoutMs),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new ServiceUnavailableException(
+        `Real email send request failed: ${message}`,
+      );
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new ServiceUnavailableException(
+        `Real email send endpoint returned ${response.status}: ${errorText}`,
+      );
+    }
+
+    return (await response.json()) as SendRealEmailTestResponse;
   }
 
   async getQueueStats(): Promise<QueueStatsResponse> {

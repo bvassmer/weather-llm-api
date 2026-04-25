@@ -167,3 +167,46 @@ export interface EmailTemplatePreviewResponse {
   scenarios: EmailTemplatePreviewScenario[];
   hadErrors: boolean;
 }
+
+export interface RealEmailTestCandidate {
+  id: string;
+  source: string;
+  event?: string;
+  headline?: string;
+  issuedAt?: string;
+  locationLabel?: string;
+  canSend: boolean;
+  reason?: string;
+}
+
+export interface RealEmailTestCandidatesResponse {
+  generatedAt: string;
+  candidates: RealEmailTestCandidate[];
+}
+
+export interface SendRealEmailTestRequest {
+  candidateId: string;
+}
+
+export interface SendRealEmailTestResponse {
+  candidateId: string;
+  status: "sent" | "skipped" | "failed";
+  reason: string;
+  source?: string;
+  event?: string;
+  headline?: string;
+  messageId?: string;
+  aiSummary?: {
+    used: boolean;
+    text?: string;
+  };
+  attachments?: Array<{
+    filename?: string;
+    cid?: string;
+  }>;
+  embeddingEnqueue?: {
+    attempted: boolean;
+    status: string;
+    reason?: string;
+  };
+}
