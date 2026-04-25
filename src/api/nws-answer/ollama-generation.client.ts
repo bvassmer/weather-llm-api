@@ -21,6 +21,15 @@ const isUpstreamTerminationMessage = (message: string): boolean => {
   );
 };
 
+/**
+ * hailo-ollama re-serializes the prompt into its internal JSON context without
+ * properly escaping double-quote characters, causing parse_error.101.
+ * Replace numeric-inch patterns (e.g. `1"`) with `in` and any remaining
+ * bare double-quotes with single-quotes before sending upstream.
+ */
+const sanitizePromptForUpstream = (prompt: string): string =>
+  prompt.replace(/(\d)"/g, "$1in").replace(/"/g, "'");
+
 @Injectable()
 export class OllamaGenerationClient {
   async generate(options: {
@@ -42,7 +51,7 @@ export class OllamaGenerationClient {
         },
         body: JSON.stringify({
           model: options.model,
-          prompt: options.prompt,
+          prompt: sanitizePromptForUpstream(options.prompt),
           stream: false,
           options: {
             temperature: options.temperature,
@@ -125,7 +134,7 @@ export class OllamaGenerationClient {
         },
         body: JSON.stringify({
           model: options.model,
-          prompt: options.prompt,
+          prompt: sanitizePromptForUpstream(options.prompt),
           stream: true,
           options: {
             temperature: options.temperature,
