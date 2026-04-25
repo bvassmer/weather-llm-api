@@ -230,6 +230,12 @@ Use these endpoints for operational tasks (filtered deletes, vector reindexing, 
 - `NWS_CONSTRAINT_EXTRACTOR_TIMEOUT_MS` (default `15000`)
 - `CORS_ORIGIN` (optional comma-separated allowlist of origins, e.g. `http://localhost:5173,http://192.168.1.50:5173`; use `*` to allow any origin)
 
+### Qwen3 runtime notes
+
+- The default answer-generation model for this API is `qwen3:1.7b`.
+- Current production behavior favors deterministic/non-thinking style outputs with conservative temperatures (`NWS_ANSWER_TEMPERATURE=0.2`; some extraction paths use `0`).
+- If you add explicit Qwen3 thinking-mode support in future, introduce it intentionally in the generation client and retune sampling parameters instead of reusing the current cold defaults.
+
 ### Alerts DB backfill
 
 `POST /nws-alerts/admin/embeddings/backfill:enqueue` reads rows from the `Alerts` table in MariaDB and enqueues embedding jobs into the API embedding queue.
