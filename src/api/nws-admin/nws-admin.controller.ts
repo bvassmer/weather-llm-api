@@ -2,6 +2,7 @@ import { Body, Controller, Get, Inject, Post } from "@nestjs/common";
 import { NwsAdminService } from "./nws-admin.service.js";
 import type {
   DeleteByFilterRequest,
+  EmailTemplatePreviewResponse,
   EnqueueAlertsBackfillRequest,
   QueueDeadJobsRequest,
   ReindexRequest,
@@ -54,5 +55,10 @@ export class NwsAdminController {
   @Post("embeddings/backfill:enqueue")
   async enqueueAlertsBackfill(@Body() body: EnqueueAlertsBackfillRequest) {
     return this.nwsAdminService.enqueueAlertsBackfill(body);
+  }
+
+  @Post("email-templates/preview")
+  async getEmailTemplatePreview(): Promise<EmailTemplatePreviewResponse> {
+    return this.nwsAdminService.getEmailTemplatePreview();
   }
 }

@@ -121,3 +121,49 @@ export interface EnqueueAlertsBackfillResponse {
     deadQueuePath: string;
   };
 }
+
+export interface EmailTemplatePreviewRequest {
+  includeContent?: boolean;
+}
+
+export interface EmailTemplatePreviewAttachment {
+  filename?: string;
+  cid?: string;
+  sourcePath?: string;
+  artifactPath?: string;
+}
+
+export interface EmailTemplatePreviewScenario {
+  scenario: string;
+  subject?: string;
+  emailFormat: "html" | "text";
+  status: "captured" | "failed";
+  artifactDirectory: string;
+  bodyPath?: string;
+  mailOptionsPath?: string;
+  attachments: EmailTemplatePreviewAttachment[];
+  aiSummaryCheck?: {
+    expected: "present" | "absent";
+    expectedText?: string;
+    passed: boolean;
+    sectionCount: number;
+    textCount: number;
+  };
+  preview?: {
+    subject?: string;
+    html?: string;
+    htmlForBrowser?: string;
+    text?: string;
+  };
+  error?: string;
+}
+
+export interface EmailTemplatePreviewResponse {
+  runId: string;
+  startedAt: string;
+  completedAt: string;
+  artifactRootDir: string;
+  summaryPath: string;
+  scenarios: EmailTemplatePreviewScenario[];
+  hadErrors: boolean;
+}

@@ -21,6 +21,7 @@ import type {
   CollectionStatsResponse,
   DeleteByFilterRequest,
   DeleteByFilterResponse,
+  EmailTemplatePreviewResponse,
   EnqueueAlertsBackfillRequest,
   EnqueueAlertsBackfillResponse,
   QueueDeadJob,
@@ -60,6 +61,50 @@ export class NwsAdminService {
     body: EnqueueAlertsBackfillRequest,
   ): Promise<EnqueueAlertsBackfillResponse> {
     return this.nwsAlertsBackfillService.enqueueFromAlertsTable(body);
+  }
+
+  async getEmailTemplatePreview(): Promise<EmailTemplatePreviewResponse> {
+    const manualTriggerBaseUrl = (
+      process.env.NWS_ALERTS_MANUAL_TRIGGER_BASE_URL ?? "http://nwsalerts:3011"
+    ).replace(/\/+$/, "");
+    const requestTimeoutMs = this.parsePositiveInt(
+      process.env.NWS_ALERTS_MANUAL_TRIGGER_TIMEOUT_MS,
+      120000,
+    );
+    const endpointUrl = `${manualTriggerBaseUrl}/internal/product-email-preview`;
+
+    let response: Response;
+    try {
+      response = await fetch(endpointUrl, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        signal: AbortSignal.timeout(requestTimeoutMs),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new ServiceUnavailableException(
+        `Email template preview request failed: ${message}`,
+      );
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new ServiceUnavailableException(
+        `Email template preview endpoint returned ${response.status}: ${errorText}`,
+      );
+    }
+
+    const payload = (await response.json()) as EmailTemplatePreviewResponse;
+
+    if (!payload || !Array.isArray(payload.scenarios)) {
+      throw new ServiceUnavailableException(
+        "Email template preview response was not in the expected format",
+      );
+    }
+
+    return payload;
   }
 
   async getQueueStats(): Promise<QueueStatsResponse> {
