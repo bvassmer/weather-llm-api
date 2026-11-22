@@ -122,8 +122,18 @@ export interface EnqueueAlertsBackfillResponse {
   };
 }
 
+export const compactEmailPreviewScenarios = [
+  "spc-convective",
+  "spc-fire",
+  "spc-mesoscale-discussion",
+  "wpc-mpd",
+  "wpc-excessive-rainfall",
+  "wpc-snow",
+] as const;
+
 export interface EmailTemplatePreviewRequest {
   includeContent?: boolean;
+  compactScenario?: typeof compactEmailPreviewScenarios[number];
 }
 
 export interface EmailTemplatePreviewAttachment {
@@ -148,6 +158,10 @@ export interface EmailTemplatePreviewScenario {
     passed: boolean;
     sectionCount: number;
     textCount: number;
+  };
+  summaryGeneration?: {
+    model?: string;
+    metadata?: unknown;
   };
   preview?: {
     subject?: string;

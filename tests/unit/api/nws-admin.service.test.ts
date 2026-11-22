@@ -17,6 +17,31 @@ describe("NwsAdminService", () => {
     });
   });
 
+  it("forwards only the requested compact preview scenario and returns its generation metadata", async () => {
+    const result = { scenarios: [{ summaryGeneration: { model: "qwen3:4b" } }] };
+    const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(Response.json(result));
+    const service = new NwsAdminService({} as any, {} as any, {} as any, {} as any);
+
+    await expect(service.getEmailTemplatePreview({ compactScenario: "spc-convective" })).resolves.toEqual(result);
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining("/internal/product-email-preview"),
+      expect.objectContaining({ body: '{"compactScenario":"spc-convective"}' }));
+  });
+
+  it("preserves the no-body fixture preview request", async () => {
+    const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(Response.json({ scenarios: [] }));
+    const service = new NwsAdminService({} as any, {} as any, {} as any, {} as any);
+
+    await expect(service.getEmailTemplatePreview()).resolves.toEqual({ scenarios: [] });
+    expect(fetch.mock.calls[0][1]).not.toHaveProperty("body");
+  });
+
+  it("preserves a compact preview validation failure from the ingestion service", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response("Invalid scenario", { status: 400 }));
+    const service = new NwsAdminService({} as any, {} as any, {} as any, {} as any);
+
+    await expect(service.getEmailTemplatePreview({ compactScenario: "wpc-snow" })).rejects.toBeInstanceOf(BadRequestException);
+  });
+
   it("returns collection stats", async () => {
     const ollama = { embedText: vi.fn() } as any;
     const qdrant = {

@@ -2,6 +2,7 @@ import { Body, Controller, Get, Inject, Post } from "@nestjs/common";
 import { NwsAdminService } from "./nws-admin.service.js";
 import type {
   DeleteByFilterRequest,
+  EmailTemplatePreviewRequest,
   EmailTemplatePreviewResponse,
   EnqueueAlertsBackfillRequest,
   RealEmailTestCandidatesResponse,
@@ -61,8 +62,10 @@ export class NwsAdminController {
   }
 
   @Post("email-templates/preview")
-  async getEmailTemplatePreview(): Promise<EmailTemplatePreviewResponse> {
-    return this.nwsAdminService.getEmailTemplatePreview();
+  async getEmailTemplatePreview(
+    @Body() body?: EmailTemplatePreviewRequest,
+  ): Promise<EmailTemplatePreviewResponse> {
+    return this.nwsAdminService.getEmailTemplatePreview(body);
   }
 
   @Get("email-templates/candidates")

@@ -82,6 +82,7 @@ describe("API controllers", () => {
       deleteByFilter: vi.fn(async () => ({ deleted: 0 })),
       reindex: vi.fn(async () => ({ processed: 0 })),
       resetCollection: vi.fn(async () => ({ reset: true })),
+      getEmailTemplatePreview: vi.fn(async () => ({ scenarios: [] })),
     } as any;
 
     const controller = new NwsAdminController(service);
@@ -98,5 +99,9 @@ describe("API controllers", () => {
     await expect(
       controller.resetCollection({ confirm: true } as any),
     ).resolves.toEqual({ reset: true });
+    await expect(controller.getEmailTemplatePreview({ compactScenario: "spc-fire" })).resolves.toEqual({
+      scenarios: [],
+    });
+    expect(service.getEmailTemplatePreview).toHaveBeenCalledWith({ compactScenario: "spc-fire" });
   });
 });

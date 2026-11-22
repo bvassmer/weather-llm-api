@@ -2,15 +2,32 @@ import {
   BadRequestException,
   Inject,
   Injectable,
+  Logger,
   ServiceUnavailableException,
 } from "@nestjs/common";
 import { getOllamaChatBaseUrl, getOllamaChatModel } from "../ollama-env.js";
 import { OllamaGenerationClient } from "../nws-answer/ollama-generation.client.js";
-import type { OutlookSummaryRequest, OutlookSummaryResponse } from "./types.js";
+import {
+  buildEvidencePrompt,
+  fallbackEvidence,
+  getEvidenceSentences,
+  parseSelectedEvidence,
+  renderCompactBriefing,
+} from "./compact-briefing.js";
+import type {
+  OutlookSummaryFacts,
+  OutlookSummaryMetadata,
+  OutlookSummaryRequest,
+  OutlookSummaryResponse,
+} from "./types.js";
 
 const DEFAULT_TIMEOUT_MS = 90000;
 const DEFAULT_MAX_TOKENS = 280;
 const DEFAULT_TEMPERATURE = 0.1;
+const COMPACT_TIMEOUT_MS = 60000;
+const COMPACT_MAX_TOKENS = 80;
+
+type SummaryMode = "legacy" | OutlookSummaryMetadata["mode"];
 
 type PromptLayout = "multiline" | "flat-labeled";
 
@@ -19,8 +36,8 @@ type PromptSection = {
   value: string;
 };
 
-const normalizeWhitespace = (value: string): string =>
-  value.replace(/\s+/g, " ").trim();
+const normalizeWhitespace = (value: unknown): string =>
+  typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
 
 const parsePositiveInt = (
   value: string | undefined,
@@ -45,6 +62,11 @@ const parseTemperature = (
 const isEnabled = (): boolean =>
   (process.env.NWS_OUTLOOK_SUMMARY_ENABLED ?? "true").trim().toLowerCase() !==
   "false";
+
+const getSummaryMode = (): SummaryMode => {
+  const value = process.env.NWS_OUTLOOK_SUMMARY_MODE?.trim().toLowerCase();
+  return value === "compact" || value === "facts-only" ? value : "legacy";
+};
 
 const getPromptLayout = (): PromptLayout => {
   const value = (process.env.NWS_OUTLOOK_SUMMARY_PROMPT_LAYOUT ?? "multiline")
@@ -71,6 +93,9 @@ const renderPromptSections = (
 
 @Injectable()
 export class NwsOutlookSummaryService {
+  private readonly logger = new Logger(NwsOutlookSummaryService.name);
+  private compactInferenceBusy = false;
+
   constructor(
     @Inject(OllamaGenerationClient)
     private readonly generationClient: OllamaGenerationClient,
@@ -85,17 +110,31 @@ export class NwsOutlookSummaryService {
       );
     }
 
-    const discussion = normalizeWhitespace(request.discussion ?? "");
-    if (!discussion) {
-      throw new BadRequestException("discussion is required");
-    }
-
-    const sourceFamily = normalizeWhitespace(request.sourceFamily ?? "");
-    const sourceProduct = normalizeWhitespace(request.sourceProduct ?? "");
+    const sourceFamily = normalizeWhitespace(request?.sourceFamily);
+    const sourceProduct = normalizeWhitespace(request?.sourceProduct);
     if (!sourceFamily || !sourceProduct) {
       throw new BadRequestException(
         "sourceFamily and sourceProduct are required",
       );
+    }
+
+    const mode = getSummaryMode();
+    const validFacts = request.facts?.version === 1 ? request.facts : undefined;
+    if (request.mode === "compact" && !validFacts) {
+      throw new BadRequestException(
+        "Compact preview requires outlook facts version 1",
+      );
+    }
+    if (mode !== "legacy" || request.mode === "compact") {
+      return this.summarizeCompact(
+        validFacts ?? { version: 1 },
+        mode === "facts-only" ? mode : "compact",
+      );
+    }
+
+    const discussion = normalizeWhitespace(request.discussion);
+    if (!discussion) {
+      throw new BadRequestException("discussion is required");
     }
 
     const model = getOllamaChatModel();
@@ -158,6 +197,90 @@ export class NwsOutlookSummaryService {
       summary,
       model,
     };
+  }
+
+  private async summarizeCompact(
+    facts: OutlookSummaryFacts,
+    mode: OutlookSummaryMetadata["mode"],
+  ): Promise<OutlookSummaryResponse> {
+    const start = performance.now();
+    // Preview can use the candidate while scheduled legacy requests keep their existing model.
+    const model =
+      process.env.NWS_OUTLOOK_SUMMARY_MODEL?.trim() ||
+      process.env.OLLAMA_CHAT_MODEL?.trim() ||
+      "";
+    const evidence = getEvidenceSentences(facts);
+    const respond = (
+      outcome: OutlookSummaryMetadata["outcome"],
+      excerpts: typeof evidence,
+      inferenceAttempted = false,
+      fallbackReason?: OutlookSummaryMetadata["fallbackReason"],
+    ): OutlookSummaryResponse => {
+      const summary = renderCompactBriefing(facts, excerpts);
+      const metadata: OutlookSummaryMetadata = {
+        mode,
+        promptVersion: "compact-v1",
+        outcome,
+        inferenceAttempted,
+        ...(fallbackReason ? { fallbackReason } : {}),
+        latencyMs: Math.round(performance.now() - start),
+      };
+      const modelLabel = model || "unconfigured";
+      this.logger.log({ event: "outlook_summary", model: modelLabel, ...metadata });
+      return { summary, model: modelLabel, metadata };
+    };
+
+    if (mode === "facts-only" || evidence.length <= 1) {
+      return respond("deterministic", fallbackEvidence(evidence));
+    }
+    if (!model) {
+      return respond(
+        "fallback",
+        fallbackEvidence(evidence),
+        false,
+        "inference-error",
+      );
+    }
+    if (this.compactInferenceBusy) {
+      return respond("fallback", fallbackEvidence(evidence), false, "busy");
+    }
+
+    this.compactInferenceBusy = true;
+    try {
+      const answer = await this.generationClient.generate({
+        baseUrl: getOllamaChatBaseUrl(),
+        model,
+        prompt: buildEvidencePrompt(evidence),
+        timeoutMs: Math.min(
+          COMPACT_TIMEOUT_MS,
+          parsePositiveInt(
+            process.env.NWS_OUTLOOK_SUMMARY_TIMEOUT_MS,
+            COMPACT_TIMEOUT_MS,
+          ),
+        ),
+        maxTokens: Math.min(
+          COMPACT_MAX_TOKENS,
+          parsePositiveInt(
+            process.env.NWS_OUTLOOK_SUMMARY_MAX_TOKENS,
+            COMPACT_MAX_TOKENS,
+          ),
+        ),
+        temperature: parseTemperature(
+          process.env.NWS_OUTLOOK_SUMMARY_TEMPERATURE,
+          DEFAULT_TEMPERATURE,
+        ),
+        rejectTruncated: true,
+      });
+      const excerpts = parseSelectedEvidence(answer, evidence);
+      if (!excerpts) {
+        return respond("fallback", fallbackEvidence(evidence), true, "invalid-output");
+      }
+      return respond(excerpts.length ? "selected" : "abstained", excerpts, true);
+    } catch {
+      return respond("fallback", fallbackEvidence(evidence), true, "inference-error");
+    } finally {
+      this.compactInferenceBusy = false;
+    }
   }
 
   buildPrompt(request: OutlookSummaryRequest): string {
@@ -242,7 +365,7 @@ export class NwsOutlookSummaryService {
 
     sections.push({
       label: "Discussion",
-      value: request.discussion,
+      value: request.discussion ?? "",
     });
 
     return renderPromptSections(getPromptLayout(), sections);

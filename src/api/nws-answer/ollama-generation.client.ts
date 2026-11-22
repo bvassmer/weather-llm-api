@@ -2,6 +2,8 @@ import { Injectable, ServiceUnavailableException } from "@nestjs/common";
 
 interface OllamaGenerateResponse {
   response?: string;
+  done?: boolean;
+  done_reason?: string;
   error?: string;
 }
 
@@ -39,6 +41,7 @@ export class OllamaGenerationClient {
     timeoutMs: number;
     temperature: number;
     maxTokens: number;
+    rejectTruncated?: boolean;
   }): Promise<string> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), options.timeoutMs);
@@ -71,6 +74,13 @@ export class OllamaGenerationClient {
       const payload = (await response.json()) as OllamaGenerateResponse;
       if (payload.error) {
         throw this.buildUpstreamError(payload.error);
+      }
+
+      if (
+        options.rejectTruncated &&
+        (payload.done === false || payload.done_reason === "length")
+      ) {
+        throw new Error("Ollama generate response did not complete");
       }
 
       if (!payload.response || !payload.response.trim()) {

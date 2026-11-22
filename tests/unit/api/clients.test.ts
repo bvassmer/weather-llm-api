@@ -63,6 +63,23 @@ describe("API clients", () => {
       ).resolves.toBe("summary");
     });
 
+    it("rejects a truncated evidence selection even if its prefix looks valid", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        Response.json({ response: "1", done: true, done_reason: "length" }),
+      );
+
+      const client = new OllamaGenerationClient();
+      await expect(client.generate({
+        baseUrl: "http://ollama.local",
+        model: "qwen3:4b",
+        prompt: "Choose an evidence number",
+        timeoutMs: 1000,
+        temperature: 0.1,
+        maxTokens: 80,
+        rejectTruncated: true,
+      })).rejects.toThrow("response did not complete");
+    });
+
     it("wraps terminated upstream errors as service unavailable", async () => {
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
         ok: true,

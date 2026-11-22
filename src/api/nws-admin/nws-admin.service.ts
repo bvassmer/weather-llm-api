@@ -16,11 +16,13 @@ import { InProcessEmbeddingClient } from "../nws-embeddings/in-process-embedding
 import { QdrantClient } from "../nws-embeddings/qdrant.client.js";
 import { NwsEmbeddingQueueService } from "../nws-embeddings/nws-embedding-queue.service.js";
 import { NwsAlertsBackfillService } from "./nws-alerts-backfill.service.js";
+import { compactEmailPreviewScenarios } from "./types.js";
 import type {
   AdminFilter,
   CollectionStatsResponse,
   DeleteByFilterRequest,
   DeleteByFilterResponse,
+  EmailTemplatePreviewRequest,
   EmailTemplatePreviewResponse,
   EnqueueAlertsBackfillRequest,
   EnqueueAlertsBackfillResponse,
@@ -66,7 +68,17 @@ export class NwsAdminService {
     return this.nwsAlertsBackfillService.enqueueFromAlertsTable(body);
   }
 
-  async getEmailTemplatePreview(): Promise<EmailTemplatePreviewResponse> {
+  async getEmailTemplatePreview(
+    body?: EmailTemplatePreviewRequest,
+  ): Promise<EmailTemplatePreviewResponse> {
+    const compactScenario = body?.compactScenario;
+    if (
+      compactScenario !== undefined &&
+      !compactEmailPreviewScenarios.includes(compactScenario)
+    ) {
+      throw new BadRequestException("Unsupported compact email preview scenario");
+    }
+
     const manualTriggerBaseUrl = (
       process.env.NWS_ALERTS_MANUAL_TRIGGER_BASE_URL ?? "http://nwsalerts:3011"
     ).replace(/\/+$/, "");
@@ -83,6 +95,7 @@ export class NwsAdminService {
         headers: {
           "content-type": "application/json",
         },
+        ...(compactScenario ? { body: JSON.stringify({ compactScenario }) } : {}),
         signal: AbortSignal.timeout(requestTimeoutMs),
       });
     } catch (error) {
@@ -94,6 +107,11 @@ export class NwsAdminService {
 
     if (!response.ok) {
       const errorText = await response.text();
+      if (compactScenario && response.status === 400) {
+        throw new BadRequestException(
+          errorText || "Invalid compact email preview request",
+        );
+      }
       throw new ServiceUnavailableException(
         `Email template preview endpoint returned ${response.status}: ${errorText}`,
       );

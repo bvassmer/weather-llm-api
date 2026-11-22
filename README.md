@@ -214,6 +214,8 @@ Use these endpoints for operational tasks (filtered deletes, vector reindexing, 
 ### Additional environment variables
 
 - `OLLAMA_CHAT_MODEL` (default `qwen3:1.7b`)
+- `NWS_OUTLOOK_SUMMARY_MODE` selects `legacy` (default), `compact`, or `facts-only` for weather email summaries. Compact mode uses versioned facts and official excerpts. Facts-only mode renders the same inputs without inference.
+- `NWS_OUTLOOK_SUMMARY_MODEL` selects the compact email model and defaults to `OLLAMA_CHAT_MODEL` when empty. Set `qwen3:4b` for on-device validation. An opt-in admin preview with `{"compactScenario":"spc-convective"}` exercises the candidate while legacy mode serves scheduled summaries. Activate compact mode after the validation gates pass.
 - `NWS_ANSWER_TIMEOUT_MS` (default `300000`, falls back to `OLLAMA_TIMEOUT_MS` when set)
 - `QDRANT_VECTOR_SIZE` (default `384`)
 - `NWS_SEARCH_TOPK_DEFAULT` (default `12`)
