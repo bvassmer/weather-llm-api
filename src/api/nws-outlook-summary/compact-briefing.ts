@@ -222,15 +222,21 @@ export const renderCompactBriefing = (
     `Risk: ${finishSentence(risks.join(" | ") || "Unavailable")}`,
   ];
   if (values.length) lines.push(`Details: ${finishSentence(values.join(" | "))}`);
-  if (evidence.length) {
-    const heading = evidence[0].heading;
+  let start = 0;
+  while (start < evidence.length) {
+    let end = start + 1;
+    while (end < evidence.length && contiguous(evidence[end - 1], evidence[end])) {
+      end += 1;
+    }
+    const heading = evidence[start].heading;
     const attribution = heading
       ? `Official discussion (${heading})`
       : "Official discussion";
-    const excerpts = evidence.map(({ text }) => text);
-    const followingQualifier = evidence.at(-1)?.followingQualifier;
+    const excerpts = evidence.slice(start, end).map(({ text }) => text);
+    const followingQualifier = evidence[end - 1].followingQualifier;
     if (followingQualifier) excerpts.push(followingQualifier);
     lines.push(`${attribution}: ${excerpts.join(" ")}`);
+    start = end;
   }
   return lines.join("\n");
 };

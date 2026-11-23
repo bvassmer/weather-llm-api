@@ -223,6 +223,35 @@ describe("NwsOutlookSummaryService", () => {
     },
   );
 
+  it("keeps later local discussion and its uncertainty when inference fails", async () => {
+    const generationClient = { generate: vi.fn(async () => "invalid selection") } as any;
+    const service = new NwsOutlookSummaryService(generationClient);
+    const request: OutlookSummaryRequest = {
+      ...compactRequest,
+      facts: {
+        ...compactRequest.facts!,
+        evidence: [
+          {
+            heading: "Morning setup",
+            text: "Clouds will increase around daybreak. Showers may start by noon.",
+          },
+          {
+            heading: "River valley",
+            text: "Repeated downpours could flood low crossings. The threat depends on whether storms stall.",
+          },
+        ],
+      },
+    };
+
+    const fallback = await service.summarize(request);
+    expect(fallback.metadata).toMatchObject({ outcome: "fallback", fallbackReason: "invalid-output" });
+    expect(fallback.summary.split("\n")).toEqual(expect.arrayContaining([
+      "Official discussion (Morning setup): Clouds will increase around daybreak. Showers may start by noon.",
+      "Official discussion (River valley): Repeated downpours could flood low crossings. The threat depends on whether storms stall.",
+    ]));
+    expect(fallback.summary.match(/The threat depends on/g)).toHaveLength(1);
+  });
+
   it("uses verified facts without inference for an outside location or facts-only mode", async () => {
     const generationClient = { generate: vi.fn() } as any;
     const service = new NwsOutlookSummaryService(generationClient);

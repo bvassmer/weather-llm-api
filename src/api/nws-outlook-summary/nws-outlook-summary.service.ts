@@ -236,13 +236,13 @@ export class NwsOutlookSummaryService {
     if (!model) {
       return respond(
         "fallback",
-        fallbackEvidence(evidence),
+        evidence,
         false,
         "inference-error",
       );
     }
     if (this.compactInferenceBusy) {
-      return respond("fallback", fallbackEvidence(evidence), false, "busy");
+      return respond("fallback", evidence, false, "busy");
     }
 
     this.compactInferenceBusy = true;
@@ -273,11 +273,11 @@ export class NwsOutlookSummaryService {
       });
       const excerpts = parseSelectedEvidence(answer, evidence);
       if (!excerpts) {
-        return respond("fallback", fallbackEvidence(evidence), true, "invalid-output");
+        return respond("fallback", evidence, true, "invalid-output");
       }
       return respond(excerpts.length ? "selected" : "abstained", excerpts, true);
     } catch {
-      return respond("fallback", fallbackEvidence(evidence), true, "inference-error");
+      return respond("fallback", evidence, true, "inference-error");
     } finally {
       this.compactInferenceBusy = false;
     }
